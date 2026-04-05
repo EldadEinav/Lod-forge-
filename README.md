@@ -14,9 +14,7 @@
 
 LOD Forge is a lightweight, browser-based LOD generation tool that requires no installation, no Blender, and no server. Open the HTML file, drop a mesh, set your reduction ratios, and export engine-ready GLB files.
 
-Built as a companion to the [Blender LOD Generator addon](../lod-generator-blender), LOD Forge targets fast iteration and quick exports — especially useful when you need to process meshes outside of a DCC pipeline.
-
-![LOD Forge Screenshot](docs/screenshot.png)
+LOD Forge targets fast iteration and quick exports — especially useful when you need to process meshes outside of a DCC pipeline.
 > *Dark sci-fi UI with real-time 3D preview, LOD comparison table, and live log output*
 
 ---
