@@ -2,1103 +2,148 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LOD FORGE · Real-time LOD Generator</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>LOD Forge</title>
+
+<script src="https://unpkg.com/three@0.152.2/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.152.2/examples/js/controls/OrbitControls.js"></script>
+<script src="https://unpkg.com/three@0.152.2/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://unpkg.com/three@0.152.2/examples/js/loaders/OBJLoader.js"></script>
+
 <style>
-/* ═══════════════════════════════════════════
-   DESIGN TOKENS
-═══════════════════════════════════════════ */
-:root {
-  --bg-base:      #05080e;
-  --bg-panel:     #080c16;
-  --bg-surface:   #0c1120;
-  --bg-hover:     #101828;
-  --accent:       #00d4ff;
-  --accent-dim:   rgba(0,212,255,0.1);
-  --accent-glow:  rgba(0,212,255,0.25);
-  --accent2:      #ff6b2b;
-  --success:      #00ff9d;
-  --warn:         #ffc107;
-  --error:        #ff4455;
-  --border:       rgba(0,212,255,0.14);
-  --border-hi:    rgba(0,212,255,0.42);
-  --text:         #6a84a0;
-  --text-mid:     #9ab0c8;
-  --text-bright:  #ddeeff;
-  --mono:         'Consolas','Courier New',monospace;
-  --panel-w:      258px;
-  --right-w:      220px;
+html,body{
+margin:0;
+width:100%;
+height:100%;
+overflow:hidden;
+background:#0b0f14;
+font-family:Arial,sans-serif;
 }
-
-*{box-sizing:border-box;margin:0;padding:0;}
-html,body{height:100%;overflow:hidden;}
-body{
-  font-family:var(--mono);
-  background:var(--bg-base);
-  color:var(--text);
-  font-size:11px;
-  display:flex;
-  flex-direction:column;
-  height:100vh;
+#dropzone{
+position:absolute;
+top:20px;
+left:20px;
+z-index:10;
+padding:12px 18px;
+border:1px solid #00d4ff;
+color:#00d4ff;
+background:rgba(0,0,0,.4);
+cursor:pointer;
+border-radius:8px;
 }
-
-/* ── Scrollbar ────────────────────────────── */
-::-webkit-scrollbar{width:4px;height:4px;}
-::-webkit-scrollbar-track{background:var(--bg-base);}
-::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
-::-webkit-scrollbar-thumb:hover{background:var(--accent);}
-
-/* ═══════════════════════════════════════════
-   HEADER
-═══════════════════════════════════════════ */
-#header{
-  height:46px;
-  background:var(--bg-panel);
-  border-bottom:1px solid var(--border);
-  display:flex;
-  align-items:center;
-  gap:14px;
-  padding:0 18px;
-  flex-shrink:0;
-  position:relative;
-  overflow:hidden;
-}
-
-/* scanline shimmer */
-#header::before{
-  content:'';
-  position:absolute;
-  inset:0;
-  background:repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(0,212,255,0.015) 2px,
-    rgba(0,212,255,0.015) 4px
-  );
-  pointer-events:none;
-}
-
-/* bottom glow line */
-#header::after{
-  content:'';
-  position:absolute;
-  bottom:0;left:0;right:0;height:1px;
-  background:linear-gradient(90deg,transparent 0%,var(--accent) 40%,var(--accent2) 60%,transparent 100%);
-  opacity:.5;
-}
-
-.logo{
-  font-size:20px;
-  font-weight:700;
-  letter-spacing:5px;
-  color:var(--accent);
-  text-shadow:0 0 22px rgba(0,212,255,.7);
-  white-space:nowrap;
-}
-.logo em{color:var(--text-bright);font-style:normal;}
-
-.badge{
-  font-size:9px;
-  letter-spacing:2px;
-  border:1px solid var(--border-hi);
-  padding:2px 7px;
-  color:var(--accent);
-  opacity:.75;
-  border-radius:2px;
-  white-space:nowrap;
-}
-
-.tagline{
-  font-size:10px;
-  color:var(--text);
-  opacity:.55;
-  white-space:nowrap;
-}
-
-.header-right{
-  margin-left:auto;
-  display:flex;
-  align-items:center;
-  gap:10px;
-}
-
-.pulse-dot{
-  width:6px;height:6px;
-  border-radius:50%;
-  background:var(--success);
-  box-shadow:0 0 8px var(--success);
-  animation:pulse 2.2s ease-in-out infinite;
-}
-@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
-
-#status-label{font-size:10px;letter-spacing:2px;color:var(--text);}
-
-/* ═══════════════════════════════════════════
-   LAYOUT
-═══════════════════════════════════════════ */
-#main{
-  flex:1;
-  display:flex;
-  overflow:hidden;
-  min-height:0;
-}
-
-/* ── Side Panels ─────────────────────────── */
-.panel{
-  display:flex;
-  flex-direction:column;
-  background:var(--bg-panel);
-  overflow:hidden;
-  flex-shrink:0;
-}
-#left-panel {
-  width:var(--panel-w);
-  border-right:1px solid var(--border);
-}
-#right-panel{
-  width:var(--right-w);
-  border-left:1px solid var(--border);
-}
-
-.p-section{
-  border-bottom:1px solid var(--border);
-  padding:11px 12px;
-}
-.p-section.grow{flex:1;overflow:hidden;display:flex;flex-direction:column;min-height:0;}
-.p-section:last-child{border-bottom:none;}
-
-.sec-label{
-  font-size:9px;
-  letter-spacing:3px;
-  color:var(--accent);
-  text-transform:uppercase;
-  margin-bottom:10px;
-  display:flex;
-  align-items:center;
-  gap:6px;
-}
-.sec-label::after{content:'';flex:1;height:1px;background:var(--border);}
-
-/* ── Drop Zone ───────────────────────────── */
-#drop-zone{
-  border:1px dashed var(--border-hi);
-  border-radius:3px;
-  padding:18px 10px;
-  text-align:center;
-  cursor:pointer;
-  transition:all .2s;
-  background:var(--accent-dim);
-  user-select:none;
-}
-#drop-zone:hover,#drop-zone.drag-over{
-  border-color:var(--accent);
-  background:rgba(0,212,255,.07);
-  box-shadow:inset 0 0 24px rgba(0,212,255,.04);
-}
-.dz-icon{font-size:26px;opacity:.5;margin-bottom:5px;}
-.dz-text{color:var(--text-mid);font-size:10px;line-height:1.7;}
-.dz-fmts{font-size:9px;color:var(--accent);opacity:.65;margin-top:3px;letter-spacing:1px;}
-#file-input{display:none;}
-
-/* ── Controls ────────────────────────────── */
-.ctrl-row{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  margin-bottom:8px;
-}
-.ctrl-lbl{color:var(--text-mid);font-size:10px;}
-
-/* number input */
-input[type="number"]{
-  background:var(--bg-surface);
-  border:1px solid var(--border);
-  color:var(--text-bright);
-  padding:3px 6px;
-  font-family:var(--mono);
-  font-size:10px;
-  width:46px;
-  text-align:center;
-  border-radius:2px;
-  outline:none;
-}
-input[type="number"]:focus{border-color:var(--accent);}
-
-/* toggle */
-.toggle-row{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  margin-bottom:8px;
-}
-.toggle{position:relative;width:32px;height:17px;}
-.toggle input{opacity:0;width:0;height:0;}
-.tgl-slider{
-  position:absolute;inset:0;
-  background:var(--bg-surface);
-  border:1px solid var(--border);
-  border-radius:9px;
-  cursor:pointer;
-  transition:.18s;
-}
-.tgl-slider::before{
-  content:'';
-  position:absolute;
-  width:11px;height:11px;
-  left:2px;top:2px;
-  background:var(--text);
-  border-radius:50%;
-  transition:.18s;
-}
-input:checked+.tgl-slider{background:rgba(0,212,255,.14);border-color:var(--accent);}
-input:checked+.tgl-slider::before{transform:translateX(15px);background:var(--accent);box-shadow:0 0 6px var(--accent);}
-
-/* range */
-input[type="range"]{
-  -webkit-appearance:none;
-  width:100%;height:2px;
-  background:var(--border);
-  border-radius:1px;
-  outline:none;
-  cursor:pointer;
-}
-input[type="range"]::-webkit-slider-thumb{
-  -webkit-appearance:none;
-  width:11px;height:11px;
-  border-radius:50%;
-  background:var(--accent2);
-  cursor:pointer;
-  box-shadow:0 0 7px rgba(255,107,43,.55);
-}
-
-/* ── LOD Sliders ─────────────────────────── */
-#lod-sliders{overflow-y:auto;flex:1;min-height:0;}
-
-.lod-row{
-  display:grid;
-  grid-template-columns:40px 1fr 34px;
-  align-items:center;
-  gap:6px;
-  margin-bottom:8px;
-}
-.lod-tag{font-size:10px;letter-spacing:1px;}
-.lod-pct{font-size:10px;text-align:right;}
-
-/* ── Buttons ─────────────────────────────── */
-.btn{
-  width:100%;
-  padding:7px 10px;
-  font-family:var(--mono);
-  font-size:10px;
-  letter-spacing:2px;
-  text-transform:uppercase;
-  border:1px solid;
-  border-radius:2px;
-  cursor:pointer;
-  transition:all .14s;
-  margin-bottom:5px;
-  display:block;
-}
-.btn-primary{background:rgba(0,212,255,.09);border-color:var(--accent);color:var(--accent);}
-.btn-primary:hover:not(:disabled){background:rgba(0,212,255,.18);box-shadow:0 0 18px var(--accent-glow);}
-.btn-export{background:rgba(255,107,43,.07);border-color:var(--accent2);color:var(--accent2);}
-.btn-export:hover:not(:disabled){background:rgba(255,107,43,.16);box-shadow:0 0 14px rgba(255,107,43,.25);}
-.btn-ghost{background:transparent;border-color:var(--border);color:var(--text-mid);}
-.btn-ghost:hover:not(:disabled){border-color:var(--text);color:var(--text-bright);}
-.btn:disabled{opacity:.28;cursor:not-allowed;}
-.btn:last-child{margin-bottom:0;}
-
-/* ═══════════════════════════════════════════
-   VIEWPORT
-═══════════════════════════════════════════ */
-#viewport-wrap{
-  flex:1;
-  display:flex;
-  flex-direction:column;
-  position:relative;
-  overflow:hidden;
-  background:#050810;
-  min-width:0;
-}
-#viewport{
-  flex:1;
-  position:relative;
-  overflow:hidden;
-}
-#viewport canvas{display:block;width:100%!important;height:100%!important;}
-
-/* overlay badges */
-#vp-overlay{
-  position:absolute;top:10px;left:10px;
-  display:flex;flex-direction:column;gap:4px;
-  pointer-events:none;
-}
-.vp-badge{
-  display:inline-block;
-  font-size:9px;
-  letter-spacing:2px;
-  color:var(--accent);
-  background:rgba(5,8,16,.82);
-  border:1px solid var(--border);
-  padding:2px 8px;
-  border-radius:2px;
-}
-
-/* toolbar */
-#vp-toolbar{
-  position:absolute;top:8px;right:8px;
-  display:flex;flex-direction:column;gap:4px;
-}
-.vp-btn{
-  width:28px;height:28px;
-  background:rgba(5,8,16,.82);
-  border:1px solid var(--border);
-  color:var(--text);
-  font-family:var(--mono);
-  font-size:9px;
-  letter-spacing:0;
-  cursor:pointer;
-  border-radius:2px;
-  transition:all .14s;
-  display:flex;align-items:center;justify-content:center;
-}
-.vp-btn:hover{border-color:var(--accent);color:var(--accent);}
-.vp-btn.active{border-color:var(--accent);color:var(--accent);background:var(--accent-dim);}
-
-/* no-mesh hint */
-#no-mesh{
-  position:absolute;inset:0;
-  display:flex;flex-direction:column;
-  align-items:center;justify-content:center;
-  gap:10px;pointer-events:none;
-  opacity:.18;
-}
-.nm-icon{font-size:52px;}
-.nm-text{font-size:11px;letter-spacing:4px;color:var(--accent);text-transform:uppercase;}
-
-/* LOD tabs */
-#lod-tabs{
-  display:flex;
-  background:var(--bg-panel);
-  border-top:1px solid var(--border);
-  height:34px;
-  flex-shrink:0;
-}
-.lod-tab{
-  flex:1;
-  border:none;
-  border-right:1px solid var(--border);
-  background:transparent;
-  font-family:var(--mono);
-  font-size:9px;
-  letter-spacing:2px;
-  color:var(--text);
-  cursor:pointer;
-  transition:all .14s;
-  text-transform:uppercase;
-}
-.lod-tab:last-child{border-right:none;}
-.lod-tab:hover{background:var(--bg-hover);color:var(--text-mid);}
-.lod-tab.active{
-  background:var(--accent-dim);
-  color:var(--accent);
-  border-top:2px solid var(--accent);
-}
-
-/* loading overlay */
-#loading{
-  display:none;
-  position:absolute;inset:0;
-  background:rgba(5,8,14,.88);
-  z-index:50;
-  flex-direction:column;
-  align-items:center;justify-content:center;
-  gap:14px;
-}
-#loading.show{display:flex;}
-.spinner{
-  width:36px;height:36px;
-  border:2px solid var(--border);
-  border-top-color:var(--accent);
-  border-radius:50%;
-  animation:spin .75s linear infinite;
-}
-@keyframes spin{to{transform:rotate(360deg);}}
-.load-txt{color:var(--accent);letter-spacing:3px;font-size:10px;text-transform:uppercase;}
-
-/* ═══════════════════════════════════════════
-   RIGHT PANEL
-═══════════════════════════════════════════ */
-.stat-row{
-  display:flex;justify-content:space-between;align-items:center;
-  padding:4px 0;
-  border-bottom:1px solid rgba(0,212,255,.05);
-  font-size:10px;
-}
-.stat-row:last-child{border-bottom:none;}
-.sk{color:var(--text);}
-.sv{color:var(--accent);font-weight:700;}
-
-.lod-cmp-row{
-  display:grid;
-  grid-template-columns:36px 1fr 46px;
-  gap:5px;align-items:center;
-  padding:4px 0;
-  border-bottom:1px solid rgba(0,212,255,.05);
-  font-size:10px;
-}
-.lod-cmp-row:last-child{border-bottom:none;}
-.bar-wrap{height:3px;background:var(--border);border-radius:2px;overflow:hidden;}
-.bar-fill{height:100%;border-radius:2px;transition:width .35s ease;}
-.cmp-tris{color:var(--text-mid);text-align:right;}
-
-/* log */
-#log{
-  flex:1;overflow-y:auto;
-  padding:4px 6px;
-  font-size:10px;
-  line-height:1.8;
-  min-height:0;
-}
-.le{display:flex;gap:6px;}
-.lt{color:var(--text);opacity:.45;flex-shrink:0;}
-.l-info{color:var(--text-mid);}
-.l-success{color:var(--success);}
-.l-warn{color:var(--warn);}
-.l-error{color:var(--error);}
-
-.empty-hint{color:var(--text);font-size:10px;opacity:.45;}
+canvas{display:block;}
 </style>
 </head>
 <body>
 
-<!-- ╔══════════════════════════════════╗ -->
-<!--   HEADER                          -->
-<!-- ╚══════════════════════════════════╝ -->
-<div id="header">
-  <div class="logo">LOD<em>FORGE</em></div>
-  <div class="badge">v1.0.0</div>
-  <div class="tagline">Real-time LOD Generator &middot; Unreal &amp; Unity</div>
-  <div class="header-right">
-    <div class="pulse-dot"></div>
-    <div id="status-label">READY</div>
-  </div>
-</div>
-
-<!-- ╔══════════════════════════════════╗ -->
-<!--   MAIN                            -->
-<!-- ╚══════════════════════════════════╝ -->
-<div id="main">
-
-  <!-- ── LEFT PANEL ─────────────────── -->
-  <div class="panel" id="left-panel">
-
-    <!-- Import -->
-    <div class="p-section">
-      <div class="sec-label">Import</div>
-      <div id="drop-zone" onclick="document.getElementById('file-input').click()">
-        <div class="dz-icon">⬡</div>
-        <div class="dz-text">Drop mesh here<br>or click to browse</div>
-        <div class="dz-fmts">OBJ &nbsp;·&nbsp; GLTF &nbsp;·&nbsp; GLB</div>
-      </div>
-      <input type="file" id="file-input" accept=".obj,.gltf,.glb">
-    </div>
-
-    <!-- Settings -->
-    <div class="p-section">
-      <div class="sec-label">Settings</div>
-      <div class="toggle-row">
-        <span class="ctrl-lbl">Unreal Engine Mode</span>
-        <label class="toggle"><input type="checkbox" id="unreal-mode" checked><span class="tgl-slider"></span></label>
-      </div>
-      <div class="toggle-row">
-        <span class="ctrl-lbl">Triangulate Export</span>
-        <label class="toggle"><input type="checkbox" id="tri-mode" checked><span class="tgl-slider"></span></label>
-      </div>
-      <div class="ctrl-row" style="margin-top:6px;">
-        <span class="ctrl-lbl">Number of LODs</span>
-        <input type="number" id="num-lods" value="3" min="1" max="6">
-      </div>
-    </div>
-
-    <!-- LOD Sliders -->
-    <div class="p-section grow">
-      <div class="sec-label">Geometry to Keep</div>
-      <div id="lod-sliders"></div>
-    </div>
-
-    <!-- Actions -->
-    <div class="p-section">
-      <div class="sec-label">Actions</div>
-      <button class="btn btn-primary" id="btn-gen" disabled>⬡ &nbsp;Generate LODs</button>
-      <button class="btn btn-export" id="btn-zip" disabled>↓ &nbsp;Export ZIP (all LODs)</button>
-      <button class="btn btn-ghost"  id="btn-sep" disabled>↓ &nbsp;Export Separate GLBs</button>
-    </div>
-
-  </div><!-- /left -->
-
-  <!-- ── VIEWPORT ───────────────────── -->
-  <div id="viewport-wrap">
-    <div id="viewport">
-
-      <div id="no-mesh">
-        <div class="nm-icon">⬡</div>
-        <div class="nm-text">No Mesh Loaded</div>
-      </div>
-
-      <div id="vp-overlay">
-        <div class="vp-badge" id="lod-badge">NO MESH</div>
-        <div class="vp-badge" id="tri-badge" style="margin-top:4px;">— TRIS</div>
-      </div>
-
-      <div id="vp-toolbar">
-        <button class="vp-btn" id="btn-cam"  title="Reset Camera">⌖</button>
-        <button class="vp-btn active" id="btn-grid" title="Toggle Grid" style="font-size:8px;letter-spacing:0;">GRD</button>
-        <button class="vp-btn" id="btn-wire" title="Wireframe">WIR</button>
-        <button class="vp-btn" id="btn-flat" title="Flat Shading">FLT</button>
-      </div>
-
-      <div id="loading">
-        <div class="spinner"></div>
-        <div class="load-txt" id="load-txt">Processing…</div>
-      </div>
-
-    </div><!-- /viewport -->
-    <div id="lod-tabs"></div>
-  </div><!-- /viewport-wrap -->
-
-  <!-- ── RIGHT PANEL ────────────────── -->
-  <div class="panel" id="right-panel">
-
-    <!-- Mesh Info -->
-    <div class="p-section">
-      <div class="sec-label">Mesh Info</div>
-      <div class="stat-row"><span class="sk">Name</span>    <span class="sv" id="si-name">—</span></div>
-      <div class="stat-row"><span class="sk">Vertices</span><span class="sv" id="si-verts">—</span></div>
-      <div class="stat-row"><span class="sk">Triangles</span><span class="sv" id="si-tris">—</span></div>
-      <div class="stat-row"><span class="sk">LODs Built</span><span class="sv" id="si-lods">—</span></div>
-      <div class="stat-row"><span class="sk">Format</span>  <span class="sv" id="si-fmt">—</span></div>
-    </div>
-
-    <!-- LOD Compare -->
-    <div class="p-section">
-      <div class="sec-label">LOD Comparison</div>
-      <div id="lod-compare"><div class="empty-hint">Generate LODs to see stats</div></div>
-    </div>
-
-    <!-- Log -->
-    <div class="p-section grow">
-      <div class="sec-label">Log</div>
-      <div id="log"></div>
-    </div>
-
-  </div><!-- /right -->
-
-</div><!-- /main -->
-
-<!-- Three.js ecosystem -->
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/modifiers/SimplifyModifier.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<div id="dropzone">Drop OBJ / GLTF / GLB</div>
+<input type="file" id="fileInput" hidden>
 
 <script>
-/* ═══════════════════════════════════════════════════════
-   LOD FORGE — Application Core
-═══════════════════════════════════════════════════════ */
+let scene,camera,renderer,controls,currentMesh;
 
-// ── Constants ──────────────────────────────────────────
-const DEFAULTS  = [0.75, 0.50, 0.30, 0.15, 0.08, 0.04];
-const LOD_COLS  = ['#00d4ff','#ff6b2b','#00ff9d','#ffc107','#bb44ff','#ff4455'];
+init();
+animate();
 
-// ── State ──────────────────────────────────────────────
-let scene, camera, renderer, controls;
-let gridH, axesH;
-let srcMesh      = null;   // original THREE.Mesh (normalised)
-let lodMeshes    = [];     // [LOD0-clone, LOD1, LOD2 ...]
-let currentLOD   = 0;
-let baseName     = 'mesh';
-let lodRatios    = [...DEFAULTS];
-let useWireframe = false;
-let useFlatShade = false;
-let gridVisible  = true;
+function init(){
+scene=new THREE.Scene();
+scene.background=new THREE.Color(0x0b0f14);
 
-// ── Three.js bootstrap ────────────────────────────────
-function initScene() {
-  const vp = document.getElementById('viewport');
+camera=new THREE.PerspectiveCamera(60,window.innerWidth/window.innerHeight,0.1,1000);
+camera.position.set(2,2,4);
 
-  scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x050810);
-  scene.fog = new THREE.FogExp2(0x050810, 0.012);
-
-  camera = new THREE.PerspectiveCamera(50, vp.clientWidth / vp.clientHeight, 0.001, 5000);
-  camera.position.set(0, 1.6, 4.2);
-
-  renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.setSize(vp.clientWidth, vp.clientHeight);
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  vp.appendChild(renderer.domElement);
-
-  controls = new THREE.OrbitControls(camera, renderer.domElement);
-  controls.enableDamping = true;
-  controls.dampingFactor = 0.07;
-  controls.minDistance   = 0.05;
-  controls.maxDistance   = 1000;
-
-  // Lighting rig
-  scene.add(new THREE.AmbientLight(0x203050, 0.8));
-  const sun = new THREE.DirectionalLight(0xd0e8ff, 1.3);
-  sun.position.set(6, 12, 8);
-  sun.castShadow = true;
-  scene.add(sun);
-  const fill = new THREE.DirectionalLight(0xff8040, 0.3);
-  fill.position.set(-8, -2, -6);
-  scene.add(fill);
-  const rim = new THREE.DirectionalLight(0x00d4ff, 0.2);
-  rim.position.set(0, 8, -10);
-  scene.add(rim);
-
-  // Grid
-  gridH = new THREE.GridHelper(40, 40, 0x00d4ff, 0x0d1220);
-  gridH.material.opacity = 0.22;
-  gridH.material.transparent = true;
-  scene.add(gridH);
-
-  axesH = new THREE.AxesHelper(0.6);
-  scene.add(axesH);
-
-  window.addEventListener('resize', onResize);
-  (function loop() { requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); })();
-  log('Three.js r128 ready', 'info');
-}
-
-function onResize() {
-  const vp = document.getElementById('viewport');
-  camera.aspect = vp.clientWidth / vp.clientHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(vp.clientWidth, vp.clientHeight);
-}
-
-// ── File Loading ──────────────────────────────────────
-function handleFile(file) {
-  if (!file) return;
-  const ext = file.name.split('.').pop().toLowerCase();
-  if (!['obj','gltf','glb'].includes(ext)) {
-    log(`Unsupported format: .${ext} — use OBJ, GLTF, or GLB`, 'warn');
-    return;
-  }
-  baseName = file.name.replace(/\.[^.]+$/, '');
-  setStatus('LOADING');
-  showLoad(`Loading ${file.name}…`);
-  log(`Loading: ${file.name}`, 'info');
-
-  const url = URL.createObjectURL(file);
-
-  if (ext === 'obj') {
-    new THREE.OBJLoader().load(url, grp => {
-      URL.revokeObjectURL(url);
-      let m = null;
-      grp.traverse(c => { if (c.isMesh && !m) m = c; });
-      if (!m) { log('No mesh in OBJ file', 'error'); hideLoad(); return; }
-      document.getElementById('si-fmt').textContent = 'OBJ';
-      onMesh(m, file.name);
-    }, undefined, e => { log('Load error: ' + e, 'error'); hideLoad(); });
-
-  } else {
-    new THREE.GLTFLoader().load(url, gltf => {
-      URL.revokeObjectURL(url);
-      let m = null;
-      gltf.scene.traverse(c => { if (c.isMesh && !m) m = c; });
-      if (!m) { log('No mesh in GLTF file', 'error'); hideLoad(); return; }
-      document.getElementById('si-fmt').textContent = ext.toUpperCase();
-      onMesh(m, file.name);
-    }, undefined, e => { log('Load error: ' + e, 'error'); hideLoad(); });
-  }
-}
-
-function onMesh(mesh, filename) {
-  // Clear previous
-  clearLODs();
-
-  // Normalise: compute normals, centre, scale to ~2 units
-  mesh.geometry.computeVertexNormals();
-  mesh.geometry.computeBoundingBox();
-  const box    = new THREE.Box3().setFromObject(mesh);
-  const centre = box.getCenter(new THREE.Vector3());
-  const size   = box.getSize(new THREE.Vector3());
-  const maxDim = Math.max(size.x, size.y, size.z) || 1;
-  const s      = 2.0 / maxDim;
-  mesh.geometry.translate(-centre.x, -centre.y, -centre.z);
-  mesh.geometry.scale(s, s, s);
-  mesh.geometry.translate(0, -(size.y * s * 0.5), 0);
-  mesh.scale.setScalar(1);
-  mesh.rotation.set(0, 0, 0);
-  mesh.position.set(0, 0, 0);
-
-  // Default material
-  const mat = new THREE.MeshStandardMaterial({
-    color: 0x7090b0,
-    metalness: 0.18,
-    roughness: 0.68,
-    wireframe: useWireframe,
-    flatShading: useFlatShade,
-  });
-  mesh.material = mat;
-  srcMesh = mesh;
-
-  // LOD0 = full-res clone
-  const lod0 = mesh.clone();
-  lod0.geometry = mesh.geometry.clone();
-  lod0.material = mat.clone();
-  lod0.name     = `${baseName}_LOD0`;
-  lodMeshes     = [lod0];
-  scene.add(lod0);
-
-  document.getElementById('no-mesh').style.display = 'none';
-
-  // Stats
-  document.getElementById('si-name').textContent  = filename;
-  document.getElementById('si-verts').textContent = fmt(vertCount(mesh.geometry));
-  document.getElementById('si-tris').textContent  = fmt(triCount(mesh.geometry));
-  document.getElementById('si-lods').textContent  = '1 (LOD0 only)';
-  buildTabs();
-  showLOD(0);
-  document.getElementById('btn-gen').disabled = false;
-  buildCompare([]);
-  hideLoad();
-  setStatus('READY');
-  resetCam();
-  log(`Loaded: ${filename}`, 'success');
-  log(`Verts: ${fmt(vertCount(mesh.geometry))}  ·  Tris: ${fmt(triCount(mesh.geometry))}`, 'info');
-}
-
-// ── LOD Generation ────────────────────────────────────
-async function generateLODs() {
-  if (!srcMesh) { log('No mesh loaded.', 'warn'); return; }
-
-  const n = parseInt(document.getElementById('num-lods').value);
-  setStatus('GENERATING');
-  showLoad('Building LODs…');
-  document.getElementById('btn-gen').disabled = true;
-
-  // Remove old LOD1+
-  for (let i = 1; i < lodMeshes.length; i++) {
-    scene.remove(lodMeshes[i]);
-    lodMeshes[i].geometry.dispose();
-    lodMeshes[i].material.dispose();
-  }
-  lodMeshes.length = 1;
-
-  const modifier = new THREE.SimplifyModifier();
-  // Convert to non-indexed for SimplifyModifier
-  const base = srcMesh.geometry.index
-    ? srcMesh.geometry.toNonIndexed()
-    : srcMesh.geometry.clone();
-  const baseVerts = base.attributes.position.count;
-
-  const cmpData = [{ name: 'LOD0', tris: triCount(srcMesh.geometry), col: LOD_COLS[0] }];
-
-  for (let i = 0; i < n; i++) {
-    const ratio  = lodRatios[i] ?? DEFAULTS[i];
-    const target = Math.max(3, Math.floor(baseVerts * ratio));
-    updateLoadTxt(`LOD${i + 1} — ${Math.round(ratio * 100)}% geometry…`);
-    await tick();
-
-    try {
-      const simplified = modifier.modify(base.clone(), target);
-      simplified.computeVertexNormals();
-
-      const mat = srcMesh.material.clone();
-      mat.wireframe  = useWireframe;
-      mat.flatShading = useFlatShade;
-      mat.needsUpdate = true;
-
-      const lm    = new THREE.Mesh(simplified, mat);
-      lm.name     = `${baseName}_LOD${i + 1}`;
-      lm.visible  = false;
-      scene.add(lm);
-      lodMeshes.push(lm);
-
-      const tris = triCount(simplified);
-      cmpData.push({ name: `LOD${i + 1}`, tris, col: LOD_COLS[i + 1] || '#888' });
-      log(`LOD${i + 1}: ${fmt(tris)} tris  (${Math.round(ratio * 100)}% kept)`, 'success');
-    } catch (e) {
-      log(`LOD${i + 1} failed: ${e.message}`, 'error');
-    }
-  }
-
-  showLOD(0);
-  buildTabs();
-  buildCompare(cmpData);
-  document.getElementById('si-lods').textContent = lodMeshes.length;
-  document.getElementById('btn-gen').disabled = false;
-  document.getElementById('btn-zip').disabled = false;
-  document.getElementById('btn-sep').disabled = false;
-  setStatus('READY');
-  hideLoad();
-  log(`✓ ${n} LOD level(s) built`, 'success');
-}
-
-function showLOD(idx) {
-  if (idx < 0 || idx >= lodMeshes.length) return;
-  lodMeshes.forEach((m, i) => m.visible = i === idx);
-  currentLOD = idx;
-  document.getElementById('lod-badge').textContent = `LOD${idx}`;
-  document.getElementById('tri-badge').textContent  = `${fmt(triCount(lodMeshes[idx].geometry))} TRIS`;
-  document.querySelectorAll('.lod-tab').forEach((t, i) => t.classList.toggle('active', i === idx));
-}
-
-// ── Export ────────────────────────────────────────────
-function meshPrefix() {
-  const unreal = document.getElementById('unreal-mode').checked;
-  const n = baseName.replace(/^SM_/i, '');
-  return unreal ? `SM_${n}` : baseName;
-}
-
-async function exportZIP() {
-  if (!lodMeshes.length) { log('Nothing to export.', 'warn'); return; }
-  setStatus('EXPORTING');
-  showLoad('Building ZIP…');
-
-  const zip  = new JSZip();
-  const exp  = new THREE.GLTFExporter();
-  const pfx  = meshPrefix();
-
-  for (let i = 0; i < lodMeshes.length; i++) {
-    updateLoadTxt(`Packing LOD${i}…`);
-    await tick();
-    const glb = await exportOne(exp, lodMeshes[i], `${pfx}_LOD${i}`);
-    zip.file(`${pfx}_LOD${i}.glb`, glb);
-  }
-
-  const blob = await zip.generateAsync({ type: 'blob' });
-  dlBlob(blob, `${pfx}_LODs.zip`);
-  setStatus('READY');
-  hideLoad();
-  log(`✓ Exported: ${pfx}_LODs.zip  (${lodMeshes.length} files)`, 'success');
-}
-
-async function exportSeparate() {
-  if (!lodMeshes.length) { log('Nothing to export.', 'warn'); return; }
-  setStatus('EXPORTING');
-  showLoad('Exporting GLBs…');
-
-  const exp = new THREE.GLTFExporter();
-  const pfx = meshPrefix();
-
-  for (let i = 0; i < lodMeshes.length; i++) {
-    updateLoadTxt(`Exporting LOD${i}…`);
-    await tick();
-    const glb = await exportOne(exp, lodMeshes[i], `${pfx}_LOD${i}`);
-    dlBlob(new Blob([glb], { type: 'model/gltf-binary' }), `${pfx}_LOD${i}.glb`);
-    log(`Saved: ${pfx}_LOD${i}.glb`, 'info');
-  }
-
-  setStatus('READY');
-  hideLoad();
-  log(`✓ Exported ${lodMeshes.length} GLB file(s)`, 'success');
-}
-
-function exportOne(exporter, mesh, name) {
-  return new Promise(resolve => {
-    const s  = new THREE.Scene();
-    const cl = mesh.clone();
-    cl.name  = name;
-    cl.position.set(0, 0, 0);
-    s.add(cl);
-    exporter.parse(s, resolve, { binary: true });
-  });
-}
-
-// ── UI builders ───────────────────────────────────────
-function buildSliders(n) {
-  const wrap = document.getElementById('lod-sliders');
-  wrap.innerHTML = '';
-  for (let i = 0; i < n; i++) {
-    const ratio = lodRatios[i] ?? DEFAULTS[i];
-    const col   = LOD_COLS[i] || '#888';
-    const pct   = Math.round(ratio * 100);
-    const row   = document.createElement('div');
-    row.className = 'lod-row';
-    row.innerHTML = `
-      <span class="lod-tag" style="color:${col}">LOD${i+1}</span>
-      <input type="range" min="1" max="99" value="${pct}" data-i="${i}">
-      <span class="lod-pct" id="p${i}" style="color:${col}">${pct}%</span>`;
-    wrap.appendChild(row);
-    row.querySelector('input').addEventListener('input', e => {
-      const v = parseInt(e.target.value) / 100;
-      lodRatios[i] = v;
-      document.getElementById(`p${i}`).textContent = Math.round(v * 100) + '%';
-    });
-  }
-}
-
-function buildTabs() {
-  const wrap = document.getElementById('lod-tabs');
-  wrap.innerHTML = '';
-  lodMeshes.forEach((m, i) => {
-    const b = document.createElement('button');
-    b.className = 'lod-tab' + (i === currentLOD ? ' active' : '');
-    const col = LOD_COLS[i] || '#888';
-    b.innerHTML = `<span style="color:${col}">LOD${i}</span>`;
-    b.title = `${fmt(triCount(m.geometry))} tris`;
-    b.addEventListener('click', () => showLOD(i));
-    wrap.appendChild(b);
-  });
-}
-
-function buildCompare(data) {
-  const wrap = document.getElementById('lod-compare');
-  wrap.innerHTML = '';
-  if (!data || !data.length) {
-    wrap.innerHTML = '<div class="empty-hint">Generate LODs to see stats</div>';
-    return;
-  }
-  const maxT = data[0].tris || 1;
-  data.forEach(d => {
-    const pct = (d.tris / maxT * 100).toFixed(0);
-    const row = document.createElement('div');
-    row.className = 'lod-cmp-row';
-    row.innerHTML = `
-      <span style="color:${d.col};font-size:10px;">${d.name}</span>
-      <div class="bar-wrap"><div class="bar-fill" style="width:${pct}%;background:${d.col};"></div></div>
-      <span class="cmp-tris">${fmt(d.tris)}</span>`;
-    wrap.appendChild(row);
-  });
-}
-
-// ── Helpers ───────────────────────────────────────────
-function clearLODs() {
-  lodMeshes.forEach(m => {
-    scene.remove(m);
-    m.geometry?.dispose();
-    m.material?.dispose();
-  });
-  lodMeshes = [];
-}
-
-function triCount(geo) {
-  if (!geo) return 0;
-  if (geo.index) return geo.index.count / 3;
-  return (geo.attributes.position?.count || 0) / 3;
-}
-
-function vertCount(geo) {
-  return geo?.attributes?.position?.count || 0;
-}
-
-function fmt(n) { return Math.round(n).toLocaleString(); }
-function tick() { return new Promise(r => setTimeout(r, 16)); }
-
-function dlBlob(blob, name) {
-  const url = URL.createObjectURL(blob);
-  const a   = Object.assign(document.createElement('a'), { href: url, download: name });
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-function resetCam() {
-  camera.position.set(0, 1.6, 4.2);
-  controls.target.set(0, 0, 0);
-  controls.update();
-}
-
-function setStatus(t) { document.getElementById('status-label').textContent = t; }
-function showLoad(t)  { document.getElementById('load-txt').textContent = t; document.getElementById('loading').classList.add('show'); }
-function hideLoad()   { document.getElementById('loading').classList.remove('show'); }
-function updateLoadTxt(t) { document.getElementById('load-txt').textContent = t; }
-
-function log(msg, type = 'info') {
-  const el  = document.getElementById('log');
-  const now = new Date();
-  const ts  = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
-  const e   = document.createElement('div');
-  e.className = 'le';
-  e.innerHTML = `<span class="lt">${ts}</span><span class="l-${type}">${msg}</span>`;
-  el.appendChild(e);
-  el.scrollTop = el.scrollHeight;
-}
-
-// ── Wire Events ───────────────────────────────────────
-function wire() {
-  // File
-  document.getElementById('file-input').addEventListener('change', e => {
-    if (e.target.files[0]) handleFile(e.target.files[0]);
-  });
-
-  // Drag/drop on drop-zone
-  const dz = document.getElementById('drop-zone');
-  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
-  dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
-  dz.addEventListener('drop', e => {
-    e.preventDefault(); dz.classList.remove('drag-over');
-    if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
-  });
-
-  // Global drag/drop (viewport)
-  document.getElementById('viewport-wrap').addEventListener('dragover', e => e.preventDefault());
-  document.getElementById('viewport-wrap').addEventListener('drop', e => {
-    e.preventDefault();
-    if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
-  });
-
-  // Num LODs
-  document.getElementById('num-lods').addEventListener('change', e => {
-    const n = Math.min(6, Math.max(1, parseInt(e.target.value) || 3));
-    e.target.value = n;
-    buildSliders(n);
-  });
-
-  // Actions
-  document.getElementById('btn-gen').addEventListener('click', generateLODs);
-  document.getElementById('btn-zip').addEventListener('click', exportZIP);
-  document.getElementById('btn-sep').addEventListener('click', exportSeparate);
-
-  // Viewport controls
-  document.getElementById('btn-cam').addEventListener('click', resetCam);
-
-  const btnGrid = document.getElementById('btn-grid');
-  btnGrid.addEventListener('click', () => {
-    gridVisible = !gridVisible;
-    gridH.visible = gridVisible;
-    axesH.visible = gridVisible;
-    btnGrid.classList.toggle('active', gridVisible);
-  });
-
-  const btnWire = document.getElementById('btn-wire');
-  btnWire.addEventListener('click', () => {
-    useWireframe = !useWireframe;
-    lodMeshes.forEach(m => { m.material.wireframe = useWireframe; });
-    btnWire.classList.toggle('active', useWireframe);
-  });
-
-  const btnFlat = document.getElementById('btn-flat');
-  btnFlat.addEventListener('click', () => {
-    useFlatShade = !useFlatShade;
-    lodMeshes.forEach(m => {
-      m.material.flatShading = useFlatShade;
-      m.material.needsUpdate = true;
-    });
-    btnFlat.classList.toggle('active', useFlatShade);
-  });
-}
-
-// ── Init ──────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  initScene();
-  buildSliders(3);
-  wire();
-  log('LOD Forge initialised', 'success');
-  log('Drop an OBJ / GLTF / GLB to begin', 'info');
+renderer=new THREE.WebGLRenderer({
+antialias:true,
+powerPreference:"high-performance"
 });
+renderer.setSize(window.innerWidth,window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+controls=new THREE.OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true;
+
+const light1=new THREE.DirectionalLight(0xffffff,1);
+light1.position.set(5,5,5);
+scene.add(light1);
+
+const light2=new THREE.AmbientLight(0xffffff,0.6);
+scene.add(light2);
+
+const grid=new THREE.GridHelper(10,10);
+scene.add(grid);
+
+window.addEventListener('resize',()=>{
+camera.aspect=window.innerWidth/window.innerHeight;
+camera.updateProjectionMatrix();
+renderer.setSize(window.innerWidth,window.innerHeight);
+});
+
+document.getElementById('dropzone').onclick=()=>{
+document.getElementById('fileInput').click();
+};
+
+document.getElementById('fileInput').addEventListener('change',e=>{
+handleFile(e.target.files[0]);
+});
+}
+
+function handleFile(file){
+if(!file)return;
+
+const reader=new FileReader();
+
+reader.onload=function(e){
+const ext=file.name.split('.').pop().toLowerCase();
+
+if(ext==="obj"){
+const loader=new THREE.OBJLoader();
+const obj=loader.parse(e.target.result);
+
+let mesh=null;
+obj.traverse(c=>{
+if(c.isMesh&&!mesh)mesh=c;
+});
+
+if(mesh)loadMesh(mesh);
+}
+
+if(ext==="glb"||ext==="gltf"){
+const loader=new THREE.GLTFLoader();
+loader.parse(e.target.result,'',gltf=>{
+let mesh=null;
+gltf.scene.traverse(c=>{
+if(c.isMesh&&!mesh)mesh=c;
+});
+if(mesh)loadMesh(mesh);
+});
+}
+};
+
+if(file.name.endsWith('.obj')){
+reader.readAsText(file);
+}else{
+reader.readAsArrayBuffer(file);
+}
+}
+
+function loadMesh(mesh){
+if(currentMesh)scene.remove(currentMesh);
+
+mesh.geometry.computeVertexNormals();
+mesh.material=new THREE.MeshStandardMaterial({
+color:0x999999
+});
+
+currentMesh=mesh;
+scene.add(currentMesh);
+}
+
+function animate(){
+requestAnimationFrame(animate);
+controls.update();
+renderer.render(scene,camera);
+}
 </script>
+
 </body>
 </html>
