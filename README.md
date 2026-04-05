@@ -1,7 +1,5 @@
 # LOD FORGE
-![]
-
-(images/Screenshot_20260405_175632_Chrome.jpg)
+![LOD Forge Screenshot](Screenshot_20260405_175632_Chrome.jpg)
 **Real-time LOD Generator — Standalone Browser Tool for Unreal Engine & Unity**
 
 ![Three.js](https://img.shields.io/badge/Three.js-r128-00d4ff?logo=threedotjs&logoColor=white)
