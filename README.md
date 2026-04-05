@@ -1,7 +1,6 @@
 # LOD FORGE
 ![LOD Forge Screenshot](Screenshot_20260405_175632_Chrome.jpg)
 **Real-time LOD Generator — Standalone Browser Tool for Unreal Engine & Unity**
-
 ![Three.js](https://img.shields.io/badge/Three.js-r128-00d4ff?logo=threedotjs&logoColor=white)
 ![HTML5](https://img.shields.io/badge/HTML5-Single%20File-orange?logo=html5&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green)
@@ -15,7 +14,7 @@
 LOD Forge is a lightweight, browser-based LOD generation tool that requires no installation, no Blender, and no server. Open the HTML file, drop a mesh, set your reduction ratios, and export engine-ready GLB files.
 
 LOD Forge targets fast iteration and quick exports — especially useful when you need to process meshes outside of a DCC pipeline.
-> *Dark sci-fi UI with real-time 3D preview, LOD comparison table, and live log output*
+> *its a Dark "sci-fi" style UI with real-time 3D preview, LOD comparison table, and live log output*
 
 ---
 
@@ -233,7 +232,7 @@ For distributable builds, use [electron-builder](https://www.electron.build/).
 
 ## Comparison: LOD Forge vs Blender Addon
 
-| | LOD Forge (this tool) | Blender LOD Generator |
+| | LOD Forge (this tool) | Blender LOD Generator | c4d lod Generator
 |---|---|---|
 | **Requires Blender** | No | Yes (3.6+) |
 | **Input formats** | OBJ, GLTF, GLB | Any Blender-supported format |
